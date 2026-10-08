@@ -19,6 +19,15 @@ let deformDirY = 1;
 // color
 let pelotaColor;
 
+// sistema de partículas: salen de la posición del mouse y viven 10 segundos
+let particulas = [];
+const vidaParticula = 10000;   // 10 segundos en milisegundos
+const emisionPorFrame = 2;
+const maxParticulas = 2000;
+const maxFragmentos = 2800;       // tope total contando los fragmentos de explosión
+const gravedadParticula = 0.1;    // hacen que caigan hacia el fondo
+const rozamientoParticula = 0.98;
+
 // sonido de rebote (p5.sound)
 let bounceOsc, bounceEnv;
 
@@ -41,7 +50,10 @@ function setup(){
 }
 
 function draw(){
-    background(120);
+    background(236, 226, 185);   // crema claro (igual que el fondo del body) para que resalten los colores
+
+    // partículas que emanan del cursor
+    actualizarParticulas();
 
     // la pelota escapa cuando el cursor se le acerca
     escaparDelCursor();
@@ -172,4 +184,115 @@ function mousePressed(){
 
 function windowResized(){
     resizeCanvas(windowWidth, windowHeight);
+}
+
+// una partícula independiente. Las normales viven 10 segundos; los fragmentos
+// de una explosión son más pequeños, salen disparados y viven menos.
+class Particula {
+    constructor(x, y, esFragmento = false){
+        this.x = x;
+        this.y = y;
+        this.esFragmento = esFragmento;
+        this.explotada = false;
+
+        if (esFragmento){
+            const ang = random(TWO_PI);
+            const fuerza = random(1.5, 4);
+            this.vx = cos(ang) * fuerza;
+            this.vy = sin(ang) * fuerza;
+            this.tamano = random(1, 6);
+            this.vida = random(400, 900);   // los fragmentos viven menos
+        } else {
+            this.vx = random(-2.5, 2.5);
+            this.vy = random(-2.5, 0.5);
+            this.tamano = random(2, 14);    // tamaños bien variados
+            this.vida = vidaParticula;
+        }
+
+        this.color = color(random(80, 255), random(80, 255), random(80, 255));
+        this.nacimiento = millis();
+    }
+
+    actualizar(){
+        // los fragmentos de la explosión caen menos y se frenan antes
+        const g = this.esFragmento ? gravedadParticula * 0.25 : gravedadParticula;
+        const r = this.esFragmento ? 0.92 : rozamientoParticula;
+
+        this.vy += g;                   // caen
+        this.vx *= r;
+        this.vy *= r;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        const mitad = this.tamano / 2;
+
+        // al llegar al fondo del canvas se quedan reposando ahí
+        if (this.y + mitad > height){
+            this.y = height - mitad;
+            this.vy = 0;
+            this.vx *= 0.8;             // se frenan al tocar
+        }
+
+        // no se salen por los lados
+        if (this.x < mitad){
+            this.x = mitad;
+            this.vx *= -0.5;
+        } else if (this.x > width - mitad){
+            this.x = width - mitad;
+            this.vx *= -0.5;
+        }
+    }
+
+    edad(){
+        return millis() - this.nacimiento;
+    }
+
+    estaViva(){
+        return this.edad() < this.vida;
+    }
+
+    // pequeña explosión: unos pocos fragmentos que salen hacia afuera
+    explotar(){
+        const cantidad = floor(random(5, 9));
+        for (let i = 0; i < cantidad; i++){
+            if (particulas.length >= maxFragmentos) return;
+            particulas.push(new Particula(this.x, this.y, true));
+        }
+    }
+
+    dibujar(){
+        const restante = 1 - this.edad() / this.vida;   // 1 -> 0 a lo largo de la vida
+        const c = this.color;
+        noStroke();
+        // se mantienen visibles y solo se desvanecen en el último tramo de su vida
+        fill(red(c), green(c), blue(c), 255 * Math.min(1, restante * 4));
+        circle(this.x, this.y, this.tamano);
+    }
+}
+
+function actualizarParticulas(){
+    // emitir desde la posición del mouse
+    if (particulas.length < maxParticulas) {
+        for (let i = 0; i < emisionPorFrame; i++){
+            particulas.push(new Particula(mouseX, mouseY));
+        }
+    }
+
+    // actualizar, dibujar y descartar las partículas que ya murieron
+    for (let i = particulas.length - 1; i >= 0; i--){
+        const p = particulas[i];
+        p.actualizar();
+
+        // al estar por morir, hace una pequeña explosión (los fragmentos no explotan)
+        if (!p.esFragmento && !p.explotada && p.edad() / p.vida >= 0.8){
+            p.explotada = true;
+            p.explotar();
+        }
+
+        if (p.estaViva()){
+            p.dibujar();
+        } else {
+            particulas.splice(i, 1);
+        }
+    }
 }

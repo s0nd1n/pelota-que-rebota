@@ -22,6 +22,8 @@ Single-file [p5.js](https://p5js.org/) sketch ("Pelotita Loca"). No build, packa
 - Physics constants live in `sketch.js`: gravity `0.5`, ball radius `25`, speed cap `velocidadMax = 30`. Each bounce uses a random restitution `random(0.75, 1.15)`, so some hits gain energy and some bounce softer.
 - The ball bounces off all four edges, changes to a random contrasting color on every bounce (`cambiarColor`), and uses **squash & stretch**: it flattens on the impact axis (`deformacion`/`deformDir*`) and stretches along its velocity otherwise (`dibujarPelota`).
 - When the cursor comes within `radioPanico` (`radio + 80`), the ball flees from it (`escaparDelCursor`), pushing harder the closer the cursor gets. It does **not** stop on hover anymore.
+- A particle system (`Particula` + `actualizarParticulas`) emits `emisionPorFrame` (2) particles per frame from the mouse position; sizes vary widely (`random(2, 14)`, fragments `random(1, 6)`). Each lives `vidaParticula` = 10000 ms and is capped at `maxParticulas` (2000). Particles fall (`gravedadParticula`) and settle at the bottom edge of the canvas, staying there until they expire; lifetime uses `millis()`, so particles expire instantly if the tab was hidden (p5 pauses `draw`).
+- At 80% of its life a normal particle makes a small explosion into 5–8 short-lived fragments (`explotar`, fragment `vida` 400–900 ms). Fragments have `esFragmento = true` and never explode, so there is no chain reaction; total count is capped at `maxFragmentos` (2800).
 - Canvas calls `resizeCanvas(windowWidth, windowHeight)` in `windowResized()`; keep that if you change layout.
 
 ## Git
